@@ -74,9 +74,7 @@ jobs:
             docker rm -f omegaclaw 2>/dev/null || true
             docker run -d \
               --name omegaclaw \
-              --restart=always \
               --env-file /omegaclaw/.env \
-              -v /Backup/docker/PeTTa:/PeTTa/repos/OmegaClaw-Core/memory \
               "${IMAGE}" \
               commchannel=telegram \
               BOT_TOKEN=${BOT_TOKEN} \
