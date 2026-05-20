@@ -46,22 +46,29 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Fetch secrets from Infisical
+        uses: Infisical/secrets-action@v1.0.7
+        with:
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          project-slug: ${{ secrets.INFISICAL_PROJECT_SLUG }}
+          env-slug: dev
+
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE,ASI_API_KEY,OPENAI_API_KEY,ANTHROPIC_API_KEY,BOT_TOKEN,CHAT_ID,LLM_PROVIDER,LLM_MODEL
+          envs: IMAGE,INFISICAL_CLIENT_ID,INFISICAL_CLIENT_SECRET,INFISICAL_PROJECT_ID
           script: |
             set -e
             mkdir -p /omegaclaw
             tee /omegaclaw/.env > /dev/null <<EOF
-            ASI_API_KEY=${ASI_API_KEY}
-            OPENAI_API_KEY=${OPENAI_API_KEY}
-            ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-            BOT_TOKEN=${BOT_TOKEN}
-            CHAT_ID=${CHAT_ID}
+            INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID}
+            INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET}
+            INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID}
+            INFISICAL_ENVIRONMENT=production
             EOF
             chmod 600 /omegaclaw/.env
 
@@ -74,19 +81,9 @@ jobs:
               --restart=always \
               --env-file /omegaclaw/.env \
               -v /Backup/docker/PeTTa:/PeTTa/repos/OmegaClaw-Core/memory \
-              "${IMAGE}" \
-              commchannel=telegram \
-              BOT_TOKEN=${BOT_TOKEN} \
-              CHAT_ID=${CHAT_ID} \
-              provider=${LLM_PROVIDER} \
-              LLM=${LLM_MODEL} \
-              embeddingprovider=OpenAI
+              "${IMAGE}"
         env:
           IMAGE: ${{ needs.prep.outputs.image }}
-          ASI_API_KEY: ${{ secrets.ASI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
