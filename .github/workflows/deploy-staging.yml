@@ -62,14 +62,14 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE
+          envs: IMAGE,INFISICAL_CLIENT_ID,INFISICAL_CLIENT_SECRET,INFISICAL_PROJECT_ID
           script: |
             set -e
             mkdir -p /omegaclaw
             tee /omegaclaw/.env > /dev/null <<EOF
-            INFISICAL_CLIENT_ID=${{ secrets.INFISICAL_CLIENT_ID }}
-            INFISICAL_CLIENT_SECRET=${{ secrets.INFISICAL_CLIENT_SECRET }}
-            INFISICAL_PROJECT_ID=${{ secrets.INFISICAL_PROJECT_ID }}
+            INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID}
+            INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET}
+            INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID}
             INFISICAL_ENVIRONMENT=staging
             EOF
             chmod 600 /omegaclaw/.env
@@ -80,9 +80,11 @@ jobs:
             docker rm -f omegaclaw 2>/dev/null || true
             docker run -d \
               --name omegaclaw \
-              --restart=always \
               --env-file /omegaclaw/.env \
               -v /Backup/docker/PeTTa:/PeTTa/repos/OmegaClaw-Core/memory \
               "${IMAGE}"
         env:
           IMAGE: ${{ needs.prep.outputs.image }}
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}

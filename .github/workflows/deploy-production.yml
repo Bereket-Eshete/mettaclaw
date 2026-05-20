@@ -60,14 +60,14 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE
+          envs: IMAGE,INFISICAL_CLIENT_ID,INFISICAL_CLIENT_SECRET,INFISICAL_PROJECT_ID
           script: |
             set -e
             mkdir -p /omegaclaw
             tee /omegaclaw/.env > /dev/null <<EOF
-            INFISICAL_CLIENT_ID=${{ secrets.INFISICAL_CLIENT_ID }}
-            INFISICAL_CLIENT_SECRET=${{ secrets.INFISICAL_CLIENT_SECRET }}
-            INFISICAL_PROJECT_ID=${{ secrets.INFISICAL_PROJECT_ID }}
+            INFISICAL_CLIENT_ID=${INFISICAL_CLIENT_ID}
+            INFISICAL_CLIENT_SECRET=${INFISICAL_CLIENT_SECRET}
+            INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID}
             INFISICAL_ENVIRONMENT=production
             EOF
             chmod 600 /omegaclaw/.env
@@ -84,3 +84,6 @@ jobs:
               "${IMAGE}"
         env:
           IMAGE: ${{ needs.prep.outputs.image }}
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
