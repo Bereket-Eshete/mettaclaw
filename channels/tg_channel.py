@@ -73,6 +73,7 @@ class _TelegramChannel:
         self.search_disabled = False
         self._ready_windows = []
         self._polling_task = None
+        self._typing_threads = {}
 
     def _normalize_chat_id(self, chat_id):
         if chat_id is None:
@@ -185,6 +186,7 @@ class _TelegramChannel:
                 
                 self.chat_id = ready_chat_id
                 self._reply_to_id = reply_id
+                self._start_typing(str(ready_chat_id))
                 return f"[{ready_chat_id}] [{reply_id}] {text}"
             return None
     
@@ -542,11 +544,36 @@ class _TelegramChannel:
         if self.loop and self._polling_task:
             self.loop.call_soon_threadsafe(self._polling_task.cancel)
 
+    def _start_typing(self, chat_id):
+        """Start a background thread that sends typing action every 4s until stopped."""
+        self._stop_typing(chat_id)
+        stop_event = threading.Event()
+        self._typing_threads[chat_id] = stop_event
+
+        def typing_loop():
+            while not stop_event.is_set():
+                if self.connected and self.bot and self.loop:
+                    asyncio.run_coroutine_threadsafe(
+                        self.bot.send_chat_action(chat_id=chat_id, action="typing"),
+                        self.loop
+                    )
+                stop_event.wait(4)
+
+        t = threading.Thread(target=typing_loop, daemon=True)
+        t.start()
+
+    def _stop_typing(self, chat_id):
+        """Stop the typing indicator for a given chat."""
+        stop_event = self._typing_threads.pop(chat_id, None)
+        if stop_event:
+            stop_event.set()
+
     def send_message(self, text, chat_id=None, reply_to_id=None):
         """Send a text message to the active chat, dispatched to the bot's event loop."""
         text = text.replace("\\n", "\n")
-        
+
         target_chat_id = chat_id or self.chat_id
+        self._stop_typing(str(target_chat_id))
         target_reply_id = reply_to_id or (self._reply_to_id if target_chat_id == self.chat_id else None)
         
         if not self.connected or self.bot is None or self.loop is None or target_chat_id is None:
