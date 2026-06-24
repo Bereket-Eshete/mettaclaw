@@ -1,4 +1,5 @@
 import importlib
+import os
 
 _REGISTRY = {
     "irc": (
@@ -13,7 +14,7 @@ _REGISTRY = {
     "telegram": (
         "channels.telegram", "start_telegram",
         lambda token, channel_id, poll_interval, server_url: (
-            token,
+            token or os.environ.get("TG_BOT_TOKEN", ""),
             channel_id,
             poll_interval,
         ),
@@ -21,7 +22,7 @@ _REGISTRY = {
     "slack": (
         "channels.slack", "start_slack",
         lambda token, channel_id, poll_interval, server_url: (
-            token,
+            token or os.environ.get("SL_BOT_TOKEN", ""),
             channel_id,
             poll_interval,
         ),
@@ -31,7 +32,7 @@ _REGISTRY = {
         lambda token, channel_id, poll_interval, server_url: (
             server_url or "https://chat.singularitynet.io",
             channel_id or "8fjrmabjx7gupy7e5kjznpt5qh",
-            token,
+            token or os.environ.get("MM_BOT_TOKEN", ""),
         ),
     ),
     "mock": (

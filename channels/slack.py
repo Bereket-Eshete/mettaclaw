@@ -1,13 +1,27 @@
 import json
+import re
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
+import auth
 from channels.base import BaseChannel
 
 _AUTO_BIND_REFRESH_INTERVAL = 300
+
+_URL_DISPLAY_RE = re.compile(r"<[^|>\s]+\|([^>]*)>")
+_URL_BARE_RE = re.compile(r"<([^>\s]+)>")
+
+
+def _slack_unwrap(text):
+    if not text:
+        return text
+    text = _URL_DISPLAY_RE.sub(r"\1", text)
+    text = _URL_BARE_RE.sub(r"\1", text)
+    text = text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+    return text
 
 class _RateLimitError(Exception):
     def __init__(self, retry_after):
@@ -20,6 +34,7 @@ class SlackChannel(BaseChannel):
         self._bot_token = str(bot_token).strip()
         if not self._bot_token:
             raise ValueError("SL_BOT_TOKEN is required")
+        self._api_base = "https://slack.com"
         self._channel_id = str(channel_id).strip()
         self._poll_interval = max(1, int(poll_interval))
         self._bot_user_id = ""
@@ -32,31 +47,29 @@ class SlackChannel(BaseChannel):
         self._rate_limit_until = 0.0
 
     def _is_allowed_message(self, sender_id: str, msg: str, channel_id: str = "") -> str:
-        candidate = self._parse_auth_candidate(msg)
         with self._auth_lock:
             if self._channel_id and channel_id != self._channel_id:
                 return "ignore"
-            if not self._auth_secret:
+            if not auth.is_auth_enabled():
                 if not self._channel_id:
                     label = self._channel_name_cache.get(channel_id, channel_id)
                     print(f"[SLACK] Auto-bound to channel {label}")
                     self._channel_id = channel_id
                 return "allow"
-            if candidate == self._auth_secret:
-                if self._authenticated_id is None:
-                    self._authenticated_id = sender_id
-                    self._channel_id = channel_id
-                    return "auth_bound"
-                return "ignore"
-            if self._authenticated_id is None:
-                return "ignore"
-            return "allow" if sender_id == self._authenticated_id else "ignore"
+            if self._authenticated_id is not None:
+                return "allow" if sender_id == self._authenticated_id else "ignore"
+            candidate = self._parse_auth_candidate(msg)
+            if auth.verify_token(candidate):
+                self._authenticated_id = sender_id
+                self._channel_id = channel_id
+                return "auth_bound"
+            return "ignore"
 
     def _api_call(self, method, params=None, timeout=30):
         params = params or {}
         body = urllib.parse.urlencode(params).encode("utf-8")
         req = urllib.request.Request(
-            f"https://slack.com/api/{method}", data=body,
+            f"{self._api_base}/api/{method}", data=body,
             headers={"Authorization": f"Bearer {self._bot_token}",
                      "Content-Type": "application/x-www-form-urlencoded"},
             method="POST",
@@ -172,7 +185,7 @@ class SlackChannel(BaseChannel):
                 max_ts = ts
             if msg.get("subtype"):
                 continue
-            text = str(msg.get("text", "")).strip()
+            text = _slack_unwrap(str(msg.get("text", "")).strip())
             user_id = str(msg.get("user", "")).strip()
             if not text or not user_id or user_id == self._bot_user_id:
                 continue
@@ -231,8 +244,11 @@ class SlackChannel(BaseChannel):
                 print(f"[SLACK] Send failed: {exc}")
                 return
 
-    def start(self, auth_secret=None) -> threading.Thread:
-        self._set_auth_secret(auth_secret)
+    def start(self) -> threading.Thread:
+        proxy = auth.get_proxy_url()
+        if proxy:
+            self._bot_token = "proxy"
+            self._api_base = f"{proxy}/slack"
         payload = self._api_call("auth.test", timeout=15)
         self._bot_user_id = str(payload.get("user_id", "")).strip()
         if self._channel_id:
@@ -246,14 +262,14 @@ class SlackChannel(BaseChannel):
             print("[SLACK] Starting in auto-bind mode.")
             self._refresh_auto_bind(force=True)
         print(f"[SLACK] Starting adapter with channel target: {self._channel_id or 'auto-bind'}")
-        return super().start(auth_secret=None)  # secret already set above
+        return super().start()
 
 _instance: SlackChannel | None = None
 
-def start_slack(bot_token, channel_id="", poll_interval=60, auth_secret=None):
+def start_slack(bot_token, channel_id="", poll_interval=60):
     global _instance
     _instance = SlackChannel(bot_token, channel_id, poll_interval)
-    return _instance.start(auth_secret)
+    return _instance.start()
 
 def stop_slack():
     if _instance:

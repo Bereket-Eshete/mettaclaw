@@ -1,6 +1,7 @@
 import abc
-import os
 import threading
+
+import auth
 
 
 class BaseChannel(abc.ABC):
@@ -8,7 +9,6 @@ class BaseChannel(abc.ABC):
         self._last_message = ""
         self._msg_lock = threading.Lock()
 
-        self._auth_secret = ""
         self._authenticated_id = None
         self._auth_lock = threading.Lock()
 
@@ -29,13 +29,6 @@ class BaseChannel(abc.ABC):
             self._last_message = ""
             return tmp
 
-    def _set_auth_secret(self, secret=None) -> None:
-        if secret is None:
-            secret = os.environ.get("OMEGACLAW_AUTH_SECRET", "")
-        with self._auth_lock:
-            self._auth_secret = (secret or "").strip()
-            self._authenticated_id = None
-
     @staticmethod
     def _parse_auth_candidate(msg: str) -> str:
         text = msg.strip()
@@ -47,21 +40,18 @@ class BaseChannel(abc.ABC):
         return text
 
     def _is_allowed_message(self, sender_id: str, msg: str) -> str:
-        candidate = self._parse_auth_candidate(msg)
         with self._auth_lock:
-            if not self._auth_secret:
+            if not auth.is_auth_enabled():
                 return "allow"
-            if candidate == self._auth_secret:
-                if self._authenticated_id is None:
-                    self._authenticated_id = sender_id
-                    return "auth_bound"
-                return "ignore"
-            if self._authenticated_id is None:
-                return "ignore"
-            return "allow" if sender_id == self._authenticated_id else "ignore"
+            if self._authenticated_id is not None:
+                return "allow" if sender_id == self._authenticated_id else "ignore"
+            candidate = self._parse_auth_candidate(msg)
+            if auth.verify_token(candidate):
+                self._authenticated_id = sender_id
+                return "auth_bound"
+            return "ignore"
 
-    def start(self, auth_secret=None) -> threading.Thread:
-        self._set_auth_secret(auth_secret)
+    def start(self) -> threading.Thread:
         self._running = True
         self._connected = False
         self._thread = threading.Thread(target=self._run_loop, daemon=True)

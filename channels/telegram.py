@@ -4,6 +4,7 @@ import time
 import urllib.parse
 import urllib.request
 
+import auth
 from channels.base import BaseChannel
 
 class TelegramChannel(BaseChannel):
@@ -19,30 +20,25 @@ class TelegramChannel(BaseChannel):
         self._state_lock = threading.Lock()
         self._authenticated_chat_id = None
 
-    def _set_auth_secret(self, secret=None) -> None:
-        super()._set_auth_secret(secret)
-        with self._auth_lock:
-            self._authenticated_chat_id = None
-
     def _is_allowed_message(self, sender_id: str, msg: str, chat_id: str = "") -> str:
-        candidate = self._parse_auth_candidate(msg)
         with self._auth_lock:
             if self._chat_id and chat_id != self._chat_id:
                 return "ignore"
-            if not self._auth_secret:
+            if not auth.is_auth_enabled():
                 if not self._chat_id:
                     self._chat_id = chat_id
                 return "allow"
-            if self._authenticated_id is None:
-                if candidate == self._auth_secret:
-                    self._authenticated_id = sender_id
-                    self._authenticated_chat_id = chat_id
-                    self._chat_id = chat_id
-                    return "auth_bound"
-                return "ignore"
-            if chat_id != self._authenticated_chat_id:
-                return "ignore"
-            return "allow" if sender_id == self._authenticated_id else "ignore"
+            if self._authenticated_id is not None:
+                if chat_id != self._chat_id:
+                    return "ignore"
+                return "allow" if sender_id == self._authenticated_id else "ignore"
+            candidate = self._parse_auth_candidate(msg)
+            if auth.verify_token(candidate):
+                self._authenticated_id = sender_id
+                self._authenticated_chat_id = chat_id
+                self._chat_id = chat_id
+                return "auth_bound"
+            return "ignore"
 
     def _api_call(self, method, params=None, timeout=30, use_post=False):
         params = params or {}
@@ -141,18 +137,21 @@ class TelegramChannel(BaseChannel):
                 print(f"[TELEGRAM] Send failed: {exc}")
                 return
 
-    def start(self, auth_secret=None) -> threading.Thread:
-        self._set_auth_secret(auth_secret)
+    def start(self) -> threading.Thread:
+        proxy = auth.get_proxy_url()
+        if proxy:
+            self._bot_token = "proxy"
+            self._api_base = f"{proxy}/telegram"
         print(f"[TELEGRAM] Starting adapter with chat target: {self._chat_id or 'auto-bind'}")
         self._initialize_offset()
-        return super().start(auth_secret=None)  # secret already set above
+        return super().start()
 
 _instance: TelegramChannel | None = None
 
-def start_telegram(bot_token, chat_id="", poll_timeout=20, auth_secret=None):
+def start_telegram(bot_token, chat_id="", poll_timeout=20):
     global _instance
     _instance = TelegramChannel(bot_token, chat_id, poll_timeout)
-    return _instance.start(auth_secret)
+    return _instance.start()
 
 def stop_telegram():
     if _instance:

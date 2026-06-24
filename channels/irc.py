@@ -4,6 +4,7 @@ import textwrap
 import threading
 import time
 
+import auth
 from channels.base import BaseChannel
 
 
@@ -21,18 +22,16 @@ class IRCChannel(BaseChannel):
 
     def _is_allowed_message(self, sender_id: str, msg: str) -> str:
         norm_nick = sender_id.strip().lower()
-        candidate = self._parse_auth_candidate(msg)
         with self._auth_lock:
-            if not self._auth_secret:
+            if not auth.is_auth_enabled():
                 return "allow"
-            if candidate == self._auth_secret:
-                if self._authenticated_id is None:
-                    self._authenticated_id = norm_nick
-                    return "auth_bound"
-                return "ignore"
-            if self._authenticated_id is None:
-                return "ignore"
-            return "allow" if norm_nick == self._authenticated_id else "ignore"
+            if self._authenticated_id is not None:
+                return "allow" if norm_nick == self._authenticated_id else "ignore"
+            candidate = self._parse_auth_candidate(msg)
+            if auth.verify_token(candidate):
+                self._authenticated_id = norm_nick
+                return "auth_bound"
+            return "ignore"
 
     def _send_raw(self, cmd: str) -> None:
         with self._sock_lock:
@@ -120,10 +119,10 @@ class IRCChannel(BaseChannel):
 _instance: IRCChannel | None = None
 
 
-def start_irc(channel, server="irc.quakenet.org", port=6667, nick="omegaclaw", auth_secret=None):
+def start_irc(channel, server="irc.quakenet.org", port=6667, nick="omegaclaw"):
     global _instance
     _instance = IRCChannel(channel, server, port, nick)
-    return _instance.start(auth_secret)
+    return _instance.start()
 
 
 def stop_irc():

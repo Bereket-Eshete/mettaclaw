@@ -4,6 +4,7 @@ import threading
 import requests
 import websocket
 
+import auth
 from channels.base import BaseChannel
 
 class MattermostChannel(BaseChannel):
@@ -28,9 +29,12 @@ class MattermostChannel(BaseChannel):
         return u["username"]
 
     def _run_loop(self) -> None:
-        ws_url = self._url.replace("https", "wss") + "/api/v4/websocket"
+        ws_url = (self._url.replace("http", "ws") if self._bot_token == "proxy"
+                  else self._url.replace("https", "wss")) + "/api/v4/websocket"
         ws = websocket.WebSocket()
-        ws.connect(ws_url, header=[f"Authorization: Bearer {self._bot_token}"])
+        ws_headers = ([f"Authorization: Bearer {self._bot_token}"] 
+                      if self._bot_token and self._bot_token != "proxy" else [])
+        ws.connect(ws_url, header=ws_headers)
         self._bot_user_id = self._get_bot_user_id()
         self._connected = True
         last_ping = time.time()
@@ -74,10 +78,17 @@ class MattermostChannel(BaseChannel):
 
 _instance: MattermostChannel | None = None
 
-def start_mattermost(url, channel_id, bot_token, auth_secret=None):
+def start_mattermost(url, channel_id, bot_token):
     global _instance
-    _instance = MattermostChannel(url, channel_id, bot_token)
-    return _instance.start(auth_secret)
+    proxy = auth.get_proxy_url()
+    if proxy:
+        url = f"{proxy}/mattermost"
+        bot_token = "proxy"
+        _instance = MattermostChannel(url, channel_id, bot_token)
+        _instance._headers = {}
+    else:
+        _instance = MattermostChannel(url, channel_id, bot_token)
+    return _instance.start()
 
 def stop_mattermost():
     if _instance:
