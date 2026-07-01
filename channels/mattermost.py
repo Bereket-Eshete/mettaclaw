@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import threading
 import time
@@ -6,6 +7,8 @@ import time
 import requests
 import websocket
 import auth
+
+logger = logging.getLogger(__name__)
 
 _running = False
 _ws = None
@@ -128,7 +131,8 @@ def _ws_loop():
 
         except websocket.WebSocketTimeoutException:
             continue
-        except Exception:
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}")
             break
 
     ws.close()

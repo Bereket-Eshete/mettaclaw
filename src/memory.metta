@@ -6,12 +6,12 @@
 (= (embeddingprovider) (empty))
 
 (= (initMemory)
-   (progn (println! "Initializing memory")
+   (progn (py-call (logger.log_info "Initializing memory" "memory"))
           (configure maxFeedback 50000)
           (configure maxRecallItems 20)
           (configure maxEpisodeRecallLines 20)
           (configure maxHistory 30000)
-          (configure embeddingprovider Local) ;OpenAI or Local
+          (configure embeddingprovider OpenAI) ;OpenAI or Local
           (if (== (embeddingprovider) Local)
               (py-call (lib_llm_ext.initLocalEmbedding)) _)))
 
