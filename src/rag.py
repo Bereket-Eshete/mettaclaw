@@ -7,8 +7,9 @@ import logging
 import chromadb
 import openai
 from   lib_llm_ext import initLocalEmbedding, useLocalEmbedding
+from src.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # --- Constants -----------------------------------------------------------
 

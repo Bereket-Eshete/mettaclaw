@@ -1,12 +1,12 @@
 import logging
 import os
 import enum
-
 import yaml
 from py_landlock import Landlock, AccessFs
 from pathlib import Path
+from src.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def apply_security_policy(path):
     try:

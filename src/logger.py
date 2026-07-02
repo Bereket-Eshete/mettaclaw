@@ -7,7 +7,6 @@ LOG_FILE = os.path.join(LOG_DIR, "omegaclaw.log")
 LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
-
 def setup_logging():
     valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
     level = LOG_LEVEL if LOG_LEVEL in valid_levels else "INFO"
@@ -43,10 +42,8 @@ def setup_logging():
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
-
 
 # MeTTa bridge — called via py-call from .metta files; module identifies the source file
 def log_debug(msg: str, module: str = "metta") -> None:
