@@ -519,8 +519,8 @@ def _relations_to_sexpr(relations: list[dict[str, Any]]) -> str:
     for relation in relations:
         atoms.append(
             f"(Relation "
-            f"(FrameID {relation['frameID1']}) "
-            f"(FrameID {relation['frameID2']}) "
+            f"(FrameID-1 {relation['frameID1']}) "
+            f"(FrameID-2 {relation['frameID2']}) "
             f"(Class {relation['class']}) "
             f"(Reason {_quote(relation['reason'])}) "
             f"(Confidence {relation['confidence']:.4f}))"

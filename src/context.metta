@@ -278,7 +278,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Space append/index helpers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;; TODO: The function calls get-state regardless of the space being empty.
+;;       - Check the rest Space Append functions for the same issue.
 (= (cfv2-add-active-frame $frame)
    (let $currentSpace (if (== (get-state &cfv2-active-framespace) ()) 
       ((get-state &cfv2-active-framespace)) (get-state &cfv2-active-framespace))
@@ -439,9 +440,9 @@
           ($now (cfv2-now))
           ($deliverables $description)
           ($subframe (cfv2-create-sub-frame $frameID $subFrameSpaceID $goalSpaceID $description $source $priority $deliverables))
-          ($compFrame (Frame (frameID $frameID) (parent-frameID ()) (priority $priority) (status Active) (deliverables ($deliverables)) (results ())))
-          ($relation (cfv2-compose-relations $queryFrameID $compFrame))
-          ($_ (change-state! &cfv2-relational-space (append (get-state &cfv2-relational-space) $relation)))
+          ($compFrame (Frame (frameID $frameID) (parent-frameID ()) (source $source) (priority $priority) (status Active) (frame-mode $mode) (deliverables ($deliverables)) (results ())))
+          ($relation (cfv2-compose-relations $frameID $compFrame))
+          ($_ (change-state! &cfv2-relational-space (append (get-state &cfv2-relational-space) $relation))) 
           ($frame (Frame
              (frameID $frameID)
              (parent-frameID ())
@@ -524,9 +525,8 @@
 
 ;; To be used as a tool for the agent.
 (= (cfv2-get-relation $currentframeID)
-   (car-atom (filter-atom (get-state &cfv2-relational-space) (Relation (FrameID $frameID) (FrameID $_) (Class $class) (Reason $reason) (Confidence $conf))
-        (== $currentframeID $frameID))))
-
+   (filter-atom (get-state &cfv2-relational-space) (Relation (FrameID-1 $a) (FrameID-2 $b) (Class $class) (Reason $reason) (Confidence $conf))
+        (or (== $currentframeID $a) (== $currentframeID $b))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; SubFrame creation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -659,6 +659,7 @@
 
 ;; Removes a frame from a frame space by the given ID 
 ;; -> returns a list of frames without the frame with the given ID.
+;; TODO: it doesn't match the FrameRef structure. thus it won't remove the frame ref from the frame index space.
 (= (cfv2-remove-frame $frameID $frameSpace)
     (filter-atom (get-state $frameSpace) $frame
         (not (== (cfv2-check-frame-id $frame $frameID) True))))
