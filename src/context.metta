@@ -198,16 +198,16 @@
         (let*
             (
                ; ($_ (println! $frame))
-               ((Frame $frameID' $parentFrameID $source $priority $goalNamespace $status $frameMode $hypotheses $method (history-summary $historySummary)
+               ((Frame $frameID' $parentFrameID $source $priority $goalNamespace (status $statusValue) $frameMode $hypotheses $method (history-summary $historySummary)
                      $modules $budget $constraints $deliverables $subFrameNamespace $results $createdAt $updatedAt $completedTimestamp $completedSummary)
                   (cfv2-get-frame $currentFrameID $space))
 
-               ($_ (println! ("Creating frame reference for frameID: " $frameID " in space: " $space)))
+               ($_ (println! ("Creating frame reference for frameID: " $currentFrameID " in space: " $space)))
 
             )
             (FrameRef
                 (frameID $currentFrameID) $parentFrameID (space (if (== $space &cfv2-completed-framespace) Completed Active)) $source
-                $priority $status $frameMode
+                $priority (status $statusValue) $frameMode
                 (summary (cfv2-compact-limited $historySummary (cfv2PayloadLimit)))
                 $createdAt $updatedAt $completedTimestamp))))
 
@@ -574,6 +574,7 @@
 ;; Update: the current frame is now snapshoted and relational composition is done before switching to the new frame.
 (= (cfv2-load-frame $currentframeID)
     (let* (
+            ($frameIDAtom (if (== (get-metatype $currentframeID) Grounded) (sread $currentframeID) $currentframeID))
             ((Frame (frameID $frameID) (parent-frameID $parentID) (source $source)
                 (priority $priority) (goal-namespace $goalSpace) (status $status)
                 (frame-mode $mode) (hypotheses $hypotheses) (method $methods)
@@ -583,9 +584,9 @@
                 (created-at $createdAt) (updated-at $updatedAt) (completed-timestamp $completedTimestamp)
                 (completed-summary $completedSummary)) 
 
-               (cfv2-get-frame $currentframeID &cfv2-active-framespace))
+               (cfv2-get-frame $frameIDAtom &cfv2-active-framespace))
             
-            ($relation (collapse (cfv2-get-relation $currentframeID)))
+            ($relation (collapse (cfv2-get-relation $frameIDAtom)))
             )
 
         (if (== $mode (cfv2-root-mode))
@@ -593,7 +594,7 @@
                ;; Safe offloading frames back to active space when switching frames before they are completed.
                (if  (== () (get-state &cfv2-current-frame-id)) NEW-FRAME-SWITCHING (cfv2-add-and-remove (get-state &cfv2-current-frame-id) (cfv2-current-frame) &cfv2-active-framespace))
 
-               (change-state! &cfv2-current-frame-id $currentframeID)
+               (change-state! &cfv2-current-frame-id $frameIDAtom)
                (change-state! &cfv2-current-parent-frame-id $parentID)
                (change-state! &cfv2-current-source $source)
                (change-state! &cfv2-current-priority $priority)
@@ -663,6 +664,19 @@
 (= (cfv2-remove-frame $frameID $frameSpace)
     (filter-atom (get-state $frameSpace) $frame
         (not (== (cfv2-check-frame-id $frame $frameID) True))))
+
+;; Checks whether a FrameRef's frameID matches the given $frameID.
+;; FrameRef stores frameID as a named field (frameID ...) in first position.
+(= (cfv2-check-ref-id (FrameRef (frameID $currentID) $parentFrameID $space
+                $source $priority (status $refStatus) $frameMode
+                $summary $createdAt $updatedAt $completedTimestamp)
+                $frameID)
+    (if (== $currentID $frameID) True False))
+
+;; Removes a FrameRef from the frame-indexspace by the given frameID.
+(= (cfv2-remove-frame-ref $frameID $frameSpace)
+    (filter-atom (get-state $frameSpace) $ref
+        (not (== (cfv2-check-ref-id $ref $frameID) True))))
 
 (= (cfv2-select-next-frame)
    (let $nextID
@@ -736,7 +750,7 @@
              (pin $memory)
              (cfv2-mark-current-frame-completed $summary)
              (change-state! &cfv2-active-framespace (cfv2-remove-frame (cfv2-root-current-frame-id) &cfv2-active-framespace))
-             (change-state! &cfv2-frame-indexspace (cfv2-remove-frame (cfv2-root-current-frame-id) &cfv2-frame-indexspace))
+             (change-state! &cfv2-frame-indexspace (cfv2-remove-frame-ref (cfv2-root-current-frame-id) &cfv2-frame-indexspace))
              (cfv2-snapshot-current-frame Completed (cfv2-current-cache-to-frame))
              (cfv2-index-current-frame () Completed)
              (cfv2-clear-current-frame-cache)
@@ -753,7 +767,7 @@
              (cfv2-snapshot-current-frame Completed (cfv2-current-cache-to-frame))
              (cfv2-index-current-frame () Completed)
              (change-state! &cfv2-active-framespace (cfv2-remove-frame (cfv2-root-current-frame-id) &cfv2-active-framespace))
-             (change-state! &cfv2-frame-indexspace (cfv2-remove-frame (cfv2-root-current-frame-id) &cfv2-frame-indexspace))
+             (change-state! &cfv2-frame-indexspace (cfv2-remove-frame-ref (cfv2-root-current-frame-id) &cfv2-frame-indexspace))
              (cfv2-clear-current-frame-cache)
              (cfv2-select-next-frame)
              FRAME-COMPLETED-STORED-LTM))))
