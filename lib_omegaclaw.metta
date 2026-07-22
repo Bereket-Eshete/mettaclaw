@@ -18,6 +18,7 @@
 !(import! &self (library OmegaClaw-Core ./src/channels))
 !(import! &self (library OmegaClaw-Core ./src/skills))
 !(import! &self (library OmegaClaw-Core ./src/memory))
+!(import! &self (library OmegaClaw-Core ./src/frame_relation.py))
 !(import! &self (library OmegaClaw-Core ./src/context))
 !(import! &self (library OmegaClaw-Core ./src/attention))
 !(import! &self (library OmegaClaw-Core ./src/loop))
