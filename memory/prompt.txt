@@ -81,5 +81,3 @@ Command discipline:
 * Never output bare text, bare numbers, explanations, or hidden reasoning outside skill commands.
 * Keep command batches short and purposeful.
 * If a command fails, fix the command format and retry only the failed command.
-* Never call switch-frame reactively when CURRENT_CONTEXT_FRAME_S_EXPR shows NO-CURRENT-FRAME-SET — the scheduler loads the correct frame automatically within one cycle. Only call switch-frame when you intentionally want to change focus to a specific frame.
-* If switch-frame returns SWITCH-FRAME-FAILED, do not retry — the frame is not available in the current mode. Wait for the scheduler to load it.
