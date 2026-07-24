@@ -17,7 +17,7 @@
           (configure spamShield True)
           (configure sleepInterval 1)
           (configure LLM gpt-5.4)
-          (configure provider Anthropic) ;Anthropic or OpenAI or ASICloud or ASIOne
+          (configure provider OpenAI) ;Anthropic or OpenAI or ASICloud or ASIOne
           (configure maxOutputToken 6000)
           (configure reasoningMode medium)
           (configure wakeupInterval 600) ;600=10 minutes
@@ -26,7 +26,6 @@
           (change-state! &loops (maxNewInputLoops))
           (configure useFrames True)
           (py-call (lib_llm_ext.setActiveProvider (provider) (LLM)))
-          (py-call (lib_llm_ext.setJudgeProvider "OpenAI"))
           ))
 
 
